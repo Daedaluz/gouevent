@@ -41,12 +41,12 @@ func (o *KObject) Action() string {
 	return res
 }
 
-func NewKObject() *KObject {
+func newKObject() *KObject {
 	return &KObject{make(map[string]string, 20), make(map[string]string, 20)}
 }
 
 func parseKObject(buff []byte, length int) (*KObject, error) {
-	obj := NewKObject()
+	obj := newKObject()
 	action_remove := false
 	for _, v := range reg.FindAllSubmatch(buff[:length], -1) {
 		key, val := string(v[1]), string(v[2])
