@@ -9,6 +9,7 @@ type UeventSocket struct {
 	file *os.File
 	refs map[string]*KObject
 	tmpbuff []byte
+	prenum []chan *KObject
 }
 
 func (s *UeventSocket) Next() (*KObject, error) {
@@ -16,7 +17,7 @@ func (s *UeventSocket) Next() (*KObject, error) {
 	if e != nil {
 		return nil, e
 	}
-	obj, e := parseKObject(s.tmpbuff, n)
+	obj, e := parseKObject(s.tmpbuff, n, "")
 	if e != nil {
 		return nil, e
 	}
@@ -45,7 +46,20 @@ func NewSocket(groups uint32) (file *UeventSocket, e error) {
 		file: tmp,
 		refs: make(map[string]*KObject, 50),
 		tmpbuff: make([]byte, syscall.Getpagesize()),
+		prenum: make([]chan *KObject, 20),
 	}
 	return
 }
+
+func (s *UeventSocket) Coldplug() {
+	objects := Coldplug()
+	for _, obj := range objects {
+		s.refs[obj.Path()] = obj
+	}
+}
+
+func (s *UeventSocket) Prenum(c chan *KObject, filter map[string]string) {
+
+}
+
 
