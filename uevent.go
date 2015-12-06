@@ -2,7 +2,15 @@ package uevent
 
 import (
 	"syscall"
+	"path/filepath"
 	"os"
+//	"fmt"
+)
+
+const (
+	None = 0
+	Kernel = 1
+	Udev = 2
 )
 
 type UeventSocket struct {
@@ -58,8 +66,38 @@ func (s *UeventSocket) Coldplug() {
 	}
 }
 
-func (s *UeventSocket) Prenum(c chan *KObject, filter map[string]string) {
+func (s *UeventSocket) GetKObject(path string, rel string) *KObject {
+	name := filepath.Clean(path + "/" + rel)
+//	fmt.Println("PATH:", name)
+	return s.refs[name]
+}
 
+func (s *UeventSocket) Prenum() chan *KObject {
+	c := make(chan *KObject)
+	go func() {
+		for _, obj := range s.refs {
+			c <- obj
+		}
+		for obj, ok := s.Next(); ok == nil; obj, ok = s.Next() {
+			switch obj.Action() {
+				case "add":
+					s.refs[obj.Path()] = obj
+					c <- obj
+				case "remove":
+					prev := s.refs[obj.Path()]
+					if prev == nil {
+//						fmt.Println("Something isn't quite right here...")
+						continue
+					}
+					obj.attr = prev.attr
+					delete(s.refs, obj.Path())
+					c <- obj
+				default:
+					c <- obj
+			}
+		}
+	}()
+	return c
 }
 
 

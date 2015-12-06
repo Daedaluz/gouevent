@@ -4,6 +4,8 @@ import(
 	"io/ioutil"
 	"strings"
 	"regexp"
+//	"path/filepath"
+	"os"
 //	"fmt"
 )
 
@@ -46,36 +48,6 @@ func newKObject() *KObject {
 	return &KObject{make(map[string]string, 20), make(map[string]string, 20)}
 }
 
-//func parseKObject(buff []byte, length int, path string) (*KObject, error) {
-//	obj := newKObject()
-//	if path != "" {
-//		obj.uevent["DEVPATH"] = path
-//	}
-//	action_remove := false
-//	for _, v := range reg.FindAllSubmatch(buff[:length], -1) {
-//		key, val := string(v[1]), string(v[2])
-//		if key == "ACTION" && val == "remove" {
-//			action_remove = true
-//		}
-//		obj.uevent[key] = val
-//		if string(v[1]) == "DEVPATH" && !action_remove {
-//			files, e := ioutil.ReadDir("/sys/" + val)
-//			fmt.Println("Reading attributes from", "/sys" + val)
-//			if e == nil {
-//				for _, f := range(files) {
-//					if f.Name() != "uevent" && f.Name() != "descriptors" && f.Mode().IsRegular() && (f.Mode().Perm() & 044 > 0) {
-//						tmp, e := ioutil.ReadFile("/sys/" + val + "/" + f.Name())
-//						if e == nil {
-//							obj.attr[f.Name()] = strings.TrimRight(string(tmp), "\n")
-//						}
-//					}
-//				}
-//			}
-//		}
-//	}
-//	return obj, nil
-//}
-
 func parseKObject(buff []byte, length int, path string) (*KObject, error) {
 	obj := newKObject()
 	if path != "" {
@@ -92,13 +64,20 @@ func parseKObject(buff []byte, length int, path string) (*KObject, error) {
 	}
 	if val, ok := obj.uevent["DEVPATH"]; ok && !action_remove{
 		files, e := ioutil.ReadDir("/sys/" + val)
-//		fmt.Println("Reading attributes from", "/sys" + val)
 		if e == nil {
 			for _, f := range(files) {
-				if f.Name() != "uevent" && f.Name() != "descriptors" && f.Mode().IsRegular() && (f.Mode().Perm() & 044 > 0) {
+				if f.Name() != "uevent" && f.Name() != "subsystem" && f.Name() != "descriptors" && f.Mode().IsRegular() && (f.Mode().Perm() & 044 > 0) {
 					tmp, e := ioutil.ReadFile("/sys/" + val + "/" + f.Name())
 					if e == nil {
 						obj.attr[f.Name()] = strings.TrimRight(string(tmp), "\n")
+					}
+				}
+				if f.Name() == "subsystem" {
+					if obj.uevent["SUBSYSTEM"] == "" {
+						name, _ := os.Readlink("/sys/" + val + "/" + f.Name())
+//						fmt.Println(name)
+						divs := strings.Split(name, "/")
+						obj.uevent["SUBSYSTEM"] = divs[len(divs)-1]
 					}
 				}
 			}
@@ -108,7 +87,6 @@ func parseKObject(buff []byte, length int, path string) (*KObject, error) {
 }
 
 func traverse(dir string, acc []*KObject) []*KObject {
-//	fmt.Println("Traversing", dir)
 	files, e := ioutil.ReadDir("/sys/" + dir)
 	if e != nil {
 		return acc
@@ -124,9 +102,6 @@ func traverse(dir string, acc []*KObject) []*KObject {
 					if e == nil {
 						acc = append(acc, obj)
 					}
-				}
-				if e != nil {
-	//				fmt.Println("Error:", e.Error())
 				}
 			}
 		}
