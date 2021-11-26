@@ -1,23 +1,23 @@
 package uevent
 
 import (
-	"syscall"
-	"path/filepath"
 	"os"
-//	"fmt"
+	"path/filepath"
+	"syscall"
+	//	"fmt"
 )
 
 const (
-	None = 0
+	None   = 0
 	Kernel = 1
-	Udev = 2
+	Udev   = 2
 )
 
 type UeventSocket struct {
-	file *os.File
-	refs map[string]*KObject
+	file    *os.File
+	refs    map[string]*KObject
 	tmpbuff []byte
-	prenum []chan *KObject
+	prenum  []chan *KObject
 }
 
 func (s *UeventSocket) Next() (*KObject, error) {
@@ -44,17 +44,17 @@ func NewSocket(groups uint32) (file *UeventSocket, e error) {
 	if e != nil {
 		return
 	}
-	sockaddr := &syscall.SockaddrNetlink {Family: syscall.AF_NETLINK, Pid: 0, Groups: groups}
+	sockaddr := &syscall.SockaddrNetlink{Family: syscall.AF_NETLINK, Pid: 0, Groups: groups}
 	e = syscall.Bind(fd, sockaddr)
 	if e != nil {
 		return
 	}
 	tmp := os.NewFile(uintptr(fd), "NetLink - KOBJECT")
 	file = &UeventSocket{
-		file: tmp,
-		refs: make(map[string]*KObject, 50),
+		file:    tmp,
+		refs:    make(map[string]*KObject, 50),
 		tmpbuff: make([]byte, syscall.Getpagesize()),
-		prenum: make([]chan *KObject, 20),
+		prenum:  make([]chan *KObject, 20),
 	}
 	return
 }
@@ -68,7 +68,7 @@ func (s *UeventSocket) Coldplug() {
 
 func (s *UeventSocket) GetKObject(path string, rel string) *KObject {
 	name := filepath.Clean(path + "/" + rel)
-//	fmt.Println("PATH:", name)
+	//	fmt.Println("PATH:", name)
 	return s.refs[name]
 }
 
@@ -80,24 +80,21 @@ func (s *UeventSocket) Prenum() chan *KObject {
 		}
 		for obj, ok := s.Next(); ok == nil; obj, ok = s.Next() {
 			switch obj.Action() {
-				case "add":
-					s.refs[obj.Path()] = obj
-					c <- obj
-				case "remove":
-					prev := s.refs[obj.Path()]
-					if prev == nil {
-//						fmt.Println("Something isn't quite right here...")
-						continue
-					}
-					obj.attr = prev.attr
-					delete(s.refs, obj.Path())
-					c <- obj
-				default:
-					c <- obj
+			case "add":
+				s.refs[obj.Path()] = obj
+				c <- obj
+			case "remove":
+				prev := s.refs[obj.Path()]
+				if prev == nil {
+					continue
+				}
+				obj.attr = prev.attr
+				delete(s.refs, obj.Path())
+				c <- obj
+			default:
+				c <- obj
 			}
 		}
 	}()
 	return c
 }
-
-
